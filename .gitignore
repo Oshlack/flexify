@@ -1,0 +1,19 @@
+# R session artifacts
+.Rhistory
+.RData
+.Rproj.user/
+*.Rproj
+
+# Patient / sensitive data — never commit
+EKL*.tsv
+EKL*.csv
+
+# macOS
+.DS_Store
+
+# Output files users may generate locally
+flexify_all_probes_*.csv
+flexify_blast_filtered_*.csv
+flexify_final_probes_*.csv
+flexify_nonfusion_probes_*.csv
+flexify_selection_template_*.csv
