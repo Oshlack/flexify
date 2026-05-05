@@ -9,6 +9,44 @@ Both workflows support **Chromium Flex (v1)** and **GEM-X Flex (v2)** assay form
 
 ---
 
+## Quick Start (Shiny App)
+
+This section walks you through launching the Flexify app with no command-line experience required.
+
+### Step 1 — Install R
+
+Download and install R from [https://cran.r-project.org](https://cran.r-project.org). Choose the version for your operating system (Windows, macOS, or Linux) and follow the installer prompts.
+
+### Step 2 — Install RStudio
+
+RStudio is a user-friendly interface for running R. Download the free Desktop version from [https://posit.co/download/rstudio-desktop](https://posit.co/download/rstudio-desktop) and install it.
+
+### Step 3 — Install required R packages
+
+Open RStudio. In the **Console** panel at the bottom, paste the following and press Enter:
+
+```r
+install.packages(c("shiny", "tidyverse", "DT", "stringr", "optparse"))
+```
+
+This only needs to be done once. It may take a few minutes to complete.
+
+### Step 4 — Download Flexify
+
+Click the green **Code** button at the top of this page and select **Download ZIP**. Unzip the downloaded folder somewhere convenient on your computer.
+
+### Step 5 — Open and run the app
+
+1. In RStudio, go to **File → Open File** and navigate to the unzipped Flexify folder.
+2. Open `flexify_app.R`.
+3. Click the **Run App** button that appears in the top-right corner of the editor panel.
+
+The Flexify app will open in a new window (or in your browser). You can now upload your input file and start designing probes.
+
+> **Note:** The off-target BLAST check (Tab 2) requires additional software (BLAST+) and a pre-built reference transcriptome database. This step is optional — see the [Installation](#installation) section below if you need it. Most users can skip it and proceed directly from Tab 1 to Tab 3.
+
+---
+
 ## Installation
 
 ### R dependencies
