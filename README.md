@@ -43,7 +43,7 @@ Click the green **Code** button at the top of this page and select **Download ZI
 
 The Flexify app will open in a new window (or in your browser). You can now upload your input file and start designing probes.
 
-> **Note:** The off-target BLAST check (Tab 2) is optional but recommended. It requires additional software (BLAST+) and a pre-built reference transcriptome database — see the [Installation](#installation) section below. Alternatively, probe sequences can be screened manually using [NCBI BLAST](https://blast.ncbi.nlm.nih.gov/Blast.cgi) or any other BLAST interface, and results imported in Tab 3.
+> **Note:** The off-target BLAST check (Tab 2) is optional but recommended. It requires additional software (BLAST+) and a pre-built reference transcriptome database — see the [Installation](#installation) section below. Alternatively, probe sequences can be screened manually using [NCBI BLAST](https://blast.ncbi.nlm.nih.gov/Blast.cgi) or any other BLAST interface, and any off-target hits should be taken into account when selecting probes in Tab 3.
 
 ---
 
