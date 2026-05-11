@@ -446,4 +446,4 @@ If you use Flexify in your research, please cite:
 ## Contact
 
 For issues or questions, please open an issue on GitHub:
-https://github.com/victoriasc/FLEX-fusion-probe-design
+https://github.com/Oshlack/flexify
