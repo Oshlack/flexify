@@ -51,6 +51,7 @@ script_dir <- tryCatch(
 )
 
 source(file.path(script_dir, "flexify_core.R"))
+source(file.path(script_dir, "flexify_nonfusion.R"))
 source(file.path(script_dir, "flexify_offtarget.R"))
 source(file.path(script_dir, "flexify_handles.R"))
 
@@ -79,6 +80,11 @@ option_list <- list(
               default = "design",
               help    = "Pipeline mode: 'design', 'blast', or 'finalise' [default: design]",
               metavar = "MODE"),
+
+  make_option("--nonfusion",
+              action  = "store_true",
+              default = FALSE,
+              help    = "Run non-fusion probe design: input CSV must have 'gene' and 'sequence' columns [default: FALSE]"),
 
   make_option("--arriba",
               action  = "store_true",
@@ -192,39 +198,63 @@ if (opt$mode == "design") {
   message("Flexify | Mode: design")
   message("  Input:   ", opt$input)
   message("  Output:  ", opt$output)
-  message("  Restraint constant: ", opt$restraint)
 
-  # Parse input: Arriba TSV directly, or generic 4-column CSV
-  if (isTRUE(opt$arriba)) {
-    message("  Input format: Arriba TSV")
-    cleaned_df <- tryCatch(
-      parse_arriba_tsv(opt$input),
-      error = function(e) stop("Arriba TSV parsing failed: ", conditionMessage(e))
+  if (isTRUE(opt$nonfusion)) {
+    # ------------------------------------------------------------------
+    # Non-fusion design: tile probes across a wild-type transcript
+    # Input CSV: gene, sequence
+    # ------------------------------------------------------------------
+    message("  Probe type: non-fusion")
+
+    input_df <- read.csv(opt$input, stringsAsFactors = FALSE)
+    message("  Genes in input: ", nrow(input_df))
+
+    output_df <- tryCatch(
+      create_nonfusion_probes(
+        input_df,
+        PROBE_HALVES_FLAG = !isTRUE(opt[["no-halves"]]),
+        MRNA_FLAG         = isTRUE(opt$mrna)
+      ),
+      error = function(e) stop("Non-fusion probe design failed: ", conditionMessage(e))
     )
+
   } else {
-    message("  Input format: generic CSV")
-    raw_df <- read.csv(opt$input, stringsAsFactors = FALSE)
-    cleaned_df <- tryCatch(
-      process_arriba_transcript(raw_df),
-      error = function(e) stop("Input validation failed: ", conditionMessage(e))
+    # ------------------------------------------------------------------
+    # Fusion design: probes spanning a gene fusion junction
+    # Input CSV: gene1, gene2, gene1_transcript, gene2_transcript
+    # ------------------------------------------------------------------
+    message("  Probe type: fusion")
+    message("  Restraint constant: ", opt$restraint)
+
+    if (isTRUE(opt$arriba)) {
+      message("  Input format: Arriba TSV")
+      cleaned_df <- tryCatch(
+        parse_arriba_tsv(opt$input),
+        error = function(e) stop("Arriba TSV parsing failed: ", conditionMessage(e))
+      )
+    } else {
+      message("  Input format: generic CSV")
+      raw_df <- read.csv(opt$input, stringsAsFactors = FALSE)
+      cleaned_df <- tryCatch(
+        process_arriba_transcript(raw_df),
+        error = function(e) stop("Input validation failed: ", conditionMessage(e))
+      )
+    }
+
+    message("  Fusions in input: ", nrow(cleaned_df))
+
+    output_df <- tryCatch(
+      create_probes_from_arriba(
+        cleaned_df,
+        RESTRAINT_CONST     = opt$restraint,
+        PRIORITISE_RHS_FLAG = isTRUE(opt[["prioritise-rhs"]]),
+        ASTERIX_FLAG        = !isTRUE(opt[["no-asterix"]]),
+        PROBE_HALVES_FLAG   = !isTRUE(opt[["no-halves"]]),
+        MRNA_FLAG           = isTRUE(opt$mrna)
+      ),
+      error = function(e) stop("Probe design failed: ", conditionMessage(e))
     )
   }
-
-  n_fusions <- nrow(cleaned_df)
-  message("  Fusions in input: ", n_fusions)
-
-  # Run probe design
-  output_df <- tryCatch(
-    create_probes_from_arriba(
-      cleaned_df,
-      RESTRAINT_CONST     = opt$restraint,
-      PRIORITISE_RHS_FLAG = isTRUE(opt[["prioritise-rhs"]]),
-      ASTERIX_FLAG        = !isTRUE(opt[["no-asterix"]]),
-      PROBE_HALVES_FLAG   = !isTRUE(opt[["no-halves"]]),
-      MRNA_FLAG           = isTRUE(opt$mrna)
-    ),
-    error = function(e) stop("Probe design failed: ", conditionMessage(e))
-  )
 
   write.csv(output_df, opt$output, row.names = FALSE)
   message("Done. ", nrow(output_df), " candidate probes written to: ", opt$output)
@@ -249,16 +279,31 @@ if (opt$mode == "blast") {
   probe_df <- read.csv(opt$input, stringsAsFactors = FALSE)
   message("  Probes loaded: ", nrow(probe_df))
 
-  filtered_df <- tryCatch(
-    run_offtarget_check(
-      probe_df       = probe_df,
-      blast_db       = opt[["blast-db"]],
-      min_mismatches = opt[["min-mismatches"]],
-      n_threads      = opt$threads,
-      filter_fails   = !isTRUE(opt[["keep-fails"]])
-    ),
-    error = function(e) stop("BLAST check failed: ", conditionMessage(e))
-  )
+  if (isTRUE(opt$nonfusion)) {
+    message("  Probe type: non-fusion (checking both halves independently)")
+    filtered_df <- tryCatch(
+      run_offtarget_check_nonfusion(
+        probe_df       = probe_df,
+        blast_db       = opt[["blast-db"]],
+        min_mismatches = opt[["min-mismatches"]],
+        n_threads      = opt$threads,
+        filter_fails   = !isTRUE(opt[["keep-fails"]])
+      ),
+      error = function(e) stop("BLAST check failed: ", conditionMessage(e))
+    )
+  } else {
+    message("  Probe type: fusion (checking junction half only)")
+    filtered_df <- tryCatch(
+      run_offtarget_check(
+        probe_df       = probe_df,
+        blast_db       = opt[["blast-db"]],
+        min_mismatches = opt[["min-mismatches"]],
+        n_threads      = opt$threads,
+        filter_fails   = !isTRUE(opt[["keep-fails"]])
+      ),
+      error = function(e) stop("BLAST check failed: ", conditionMessage(e))
+    )
+  }
 
   write.csv(filtered_df, opt$output, row.names = FALSE)
   message("Done. ", nrow(filtered_df), " probes written to: ", opt$output)
@@ -304,20 +349,40 @@ if (opt$mode == "finalise") {
     stop("No rows to process. If a 'Selected' column is present, ensure some rows are TRUE.")
   }
 
-  # Column requirements differ by assay version
-  required <- if (is_v2) c("GENE1", "GENE2", "probe") else c("GENE1", "GENE2", "probe", "Barcode")
-  missing  <- setdiff(required, colnames(input_df))
-  if (length(missing) > 0) {
-    stop("Input CSV is missing required columns: ", paste(missing, collapse = ", "))
+  if (isTRUE(opt$nonfusion)) {
+    # Non-fusion: single GENE column, no GENE1/GENE2
+    required <- if (is_v2) c("GENE", "probe") else c("GENE", "probe", "Barcode")
+    missing  <- setdiff(required, colnames(input_df))
+    if (length(missing) > 0) {
+      stop("Input CSV is missing required columns: ", paste(missing, collapse = ", "))
+    }
+
+    final_df <- tryCatch(
+      if (is_v2) finalise_nonfusion_probes_v2(input_df, rhs_mode = rhs_mode)
+      else        finalise_nonfusion_probes(input_df),
+      error = function(e) stop("Finalise failed: ", conditionMessage(e))
+    )
+
+    message("Done. ", nrow(final_df), " probe sequences written to: ", opt$output)
+    message("  Each gene produces one LHS and one RHS oligonucleotide.")
+
+  } else {
+    # Fusion: GENE1 + GENE2 columns
+    required <- if (is_v2) c("GENE1", "GENE2", "probe") else c("GENE1", "GENE2", "probe", "Barcode")
+    missing  <- setdiff(required, colnames(input_df))
+    if (length(missing) > 0) {
+      stop("Input CSV is missing required columns: ", paste(missing, collapse = ", "))
+    }
+
+    final_df <- tryCatch(
+      if (is_v2) finalise_probes_v2(input_df, rhs_mode = rhs_mode)
+      else        finalise_probes(input_df),
+      error = function(e) stop("Finalise failed: ", conditionMessage(e))
+    )
+
+    message("Done. ", nrow(final_df), " probe sequences written to: ", opt$output)
+    message("  Each fusion produces one LHS and one RHS oligonucleotide.")
   }
 
-  final_df <- tryCatch(
-    if (is_v2) finalise_probes_v2(input_df, rhs_mode = rhs_mode)
-    else        finalise_probes(input_df),
-    error = function(e) stop("Finalise failed: ", conditionMessage(e))
-  )
-
   write.csv(final_df, opt$output, row.names = FALSE)
-  message("Done. ", nrow(final_df), " probe sequences written to: ", opt$output)
-  message("  Each fusion produces one LHS and one RHS oligonucleotide.")
 }

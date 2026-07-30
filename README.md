@@ -82,6 +82,85 @@ makeblastdb -in transcriptome.fa -dbtype nucl -out transcriptome_db
 
 ---
 
+## Demo
+
+The following commands use the bundled example file and can be run from the repository root. They require R and the R packages listed under [Installation](#installation). Runtime is a few seconds on a laptop.
+
+### 1 — Design fusion probes from a generic CSV
+
+```bash
+Rscript flexify_cli.R \
+  --input example_data/test_generic_input.csv \
+  --output demo_probes.csv
+```
+
+This reads the four-column CSV (`gene1`, `gene2`, `gene1_transcript`, `gene2_transcript`), enumerates all junction-offset candidates for each fusion, scores and ranks them, and writes the full ranked table to `demo_probes.csv`. For the 32-fusion example file this produces 251 ranked candidates in ~1 second. Fusions where gap regions overlap the breakpoint window are skipped with a warning.
+
+> **Arriba TSV input:** if your fusion caller is Arriba, pass the TSV directly with the `--arriba` flag and Flexify will parse the `fusion_transcript` column automatically:
+> ```bash
+> Rscript flexify_cli.R --arriba --input fusions.tsv --output demo_probes.csv
+> ```
+
+### 2 — Finalise probes (add handle sequences)
+
+Once you have selected one probe per fusion (fill the `Selected` and `Barcode` columns in the CSV, or use Tab 3 of the Shiny app), run the finalise step to append the full LHS and RHS handle sequences ready for oligonucleotide synthesis.
+
+**Chromium Flex v1** (barcode embedded in probe):
+
+```bash
+Rscript flexify_cli.R \
+  --mode finalise \
+  --input selected_probes.csv \
+  --output final_probes_v1.csv
+```
+
+**GEM-X Flex v2** (barcode in kit reagents, not in probe):
+
+```bash
+Rscript flexify_cli.R \
+  --mode finalise \
+  --assay-version v2 \
+  --input selected_probes.csv \
+  --output final_probes_v2.csv
+```
+
+The output CSV contains synthesis-ready `LHS` and `RHS` columns for each selected probe.
+
+### 3 — Design non-fusion probes from a wild-type transcript CSV
+
+For tiled probes against a wild-type sequence (e.g. GFP, a CRISPR reporter, or any exogenous gene), use the `--nonfusion` flag with a 2-column CSV (`gene`, `sequence`):
+
+```bash
+Rscript flexify_cli.R \
+  --nonfusion \
+  --input example_data/test_nonfusion_input.csv \
+  --output demo_nonfusion_probes.csv
+```
+
+This designs probes for all 4 genes in the example file and writes 343 ranked candidates in ~5 seconds (most of which is R startup time).
+
+The BLAST and finalise modes also accept `--nonfusion`:
+
+```bash
+# Off-target check (screens both halves independently):
+Rscript flexify_cli.R --mode blast --nonfusion \
+  --input demo_nonfusion_probes.csv \
+  --blast-db /path/to/transcriptome_db \
+  --output demo_nonfusion_filtered.csv
+
+# Finalise (v1, with barcode):
+Rscript flexify_cli.R --mode finalise --nonfusion \
+  --input selected_nonfusion.csv \
+  --output final_nonfusion_v1.csv
+
+# Finalise (v2, no barcode):
+Rscript flexify_cli.R --mode finalise --nonfusion --assay-version v2 \
+  --input selected_nonfusion.csv \
+  --output final_nonfusion_v2.csv
+```
+
+---
+
 ## File Structure
 
 ```
@@ -251,6 +330,9 @@ Rscript flexify_cli.R --input fusions.csv --output probes.csv
 # Fusion probes from Arriba TSV:
 Rscript flexify_cli.R --arriba --input fusions.tsv --output probes.csv
 
+# Non-fusion probes (gene + sequence CSV):
+Rscript flexify_cli.R --nonfusion --input targets.csv --output probes.csv
+
 # With optional flags:
 Rscript flexify_cli.R \
   --input fusions.csv \
@@ -264,13 +346,14 @@ Rscript flexify_cli.R \
 
 | Flag | Default | Description |
 |---|---|---|
-| `--input / -i` | required | Input fusion CSV or Arriba TSV (with `--arriba`) |
+| `--input / -i` | required | Input CSV or Arriba TSV (with `--arriba`) |
 | `--output / -o` | required | Output ranked probe CSV |
-| `--arriba` | FALSE | Parse input as an Arriba TSV file |
-| `--restraint` | 5 | Minimum bases per probe half from each gene |
+| `--nonfusion` | FALSE | Non-fusion mode: input must have `gene` and `sequence` columns |
+| `--arriba` | FALSE | Parse input as an Arriba TSV file (fusion mode only) |
+| `--restraint` | 5 | Minimum bases per probe half from each gene (fusion mode only) |
 | `--mrna` | FALSE | Include mRNA target sequence column |
-| `--prioritise-rhs` | FALSE | Penalise left-half junction probes |
-| `--no-asterix` | FALSE | Omit fusion breakpoint marker (*) |
+| `--prioritise-rhs` | FALSE | Penalise left-half junction probes (fusion mode only) |
+| `--no-asterix` | FALSE | Omit fusion breakpoint marker (*) (fusion mode only) |
 | `--no-halves` | FALSE | Omit probe half boundary marker (|) |
 
 ### Mode 2: BLAST Off-Target Check
