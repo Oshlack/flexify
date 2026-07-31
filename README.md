@@ -1,11 +1,11 @@
 # Flexify
 
-An R tool for automated probe design for the 10x Genomics Flex platform. Flexify supports two probe design workflows:
+An R tool for automated custom probe design for 10x Genomics fixed RNA profiling platforms. Flexify supports two probe design workflows:
 
 - **Fusion probes** — 50 bp probes spanning a fusion gene junction, scored and ranked across all possible junction offsets.
 - **Non-fusion probes** — 50 bp antisense probes tiled along a wild-type transcript sequence (e.g. GFP, CRISPR reporter, or any exogenous/custom gene).
 
-Both workflows support **Chromium Flex (v1)**, **GEM-X Flex (v2)**, and **Visium FFPE / CytAssist** assay formats, automated BLAST-based off-target screening, Flex probeset competition checking, and generate full synthesis-ready LHS and RHS probe sequences including the required 10x Genomics handle sequences.
+Both workflows support **Chromium Flex (v1)**, **GEM-X Flex (v2)**, and **Visium FFPE / CytAssist** assay formats, automated BLAST-based off-target screening, probeset competition checking, and generate full synthesis-ready LHS and RHS probe sequences including the required 10x Genomics handle sequences.
 
 ---
 
@@ -297,9 +297,9 @@ Screens probe sequences against a reference transcriptome database using BLAST.
 
 Effective mismatches = `aligned_mismatches + (query_length − alignment_length)`. Provide the BLAST database path (the path prefix used with `makeblastdb`, without file extension).
 
-#### Flex probeset competition check
+#### Probeset competition check
 
-Checks whether any probe half closely matches a sequence already present in the standard 10x Genomics Flex whole-transcriptome probeset, which could compete for the same target and reduce signal.
+Checks whether any probe half closely matches a sequence already present in the standard 10x Genomics whole-transcriptome probeset, which could compete for the same target and reduce signal.
 
 **Fusion probes**: only the non-junction (wild-type) half is checked, since the junction half spans a novel sequence not present in the standard probeset.
 
@@ -311,7 +311,7 @@ Results from both checks are carried forward to Tab 3.
 
 ### Tab 3 — Select & Finalise
 
-**Select your assay version** (v1, v2, or visium) in the sidebar before generating final probes.
+**Select your assay version** (v1 or v2) in the sidebar before generating final probes. Visium finalisation is available via the CLI (`--assay-version visium`) but not currently in the Shiny app.
 
 **Fusion probes**: each fusion (GENE1::GENE2) is shown as a panel with radio buttons listing all ranked candidate probes and a barcode dropdown (v1 only). Select one probe per fusion, assign barcodes (v1), then click **Generate Final Probes**.
 
@@ -464,9 +464,9 @@ Non-fusion probes are scored on GC content and homopolymer content only (there i
 
 ## Probe Structure
 
-The LHS handle sequence is identical for both assay versions and both probe types. The RHS structure depends on assay version.
+The LHS handle sequence is identical across all supported assay formats and both probe types. The RHS structure depends on the assay format.
 
-### LHS probe (v1 and v2)
+### LHS probe (all formats)
 ```
 CCTTGGCACCCGAGAATTCCA  [21 bp constant handle]
 + [bases 1–25 of the 50 bp probe]
@@ -543,7 +543,7 @@ Off-target specificity is assessed by BLAST alignment against the reference tran
 
 Effective mismatches = `aligned_mismatches + (query_length − alignment_length)`.
 
-This can be run:
+Off-target checking can be run:
 - **In the app**: using Tab 2 with a locally installed BLAST+ and pre-built database.
 - **Via the CLI**: using `--mode blast`.
 - **Manually**: by exporting the probe CSV from Tab 1, running BLAST externally, and filtering before re-importing in Tab 3.
