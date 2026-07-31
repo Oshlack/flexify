@@ -107,6 +107,24 @@ clean_probe_sequence <- function(probe_str) {
 }
 
 
+#' Generate the full Right-Hand Side (RHS) probe sequence for Visium FFPE / CytAssist.
+#'
+#' Visium uses the same LHS handle as Chromium Flex but replaces the barcode
+#' system with a 30-nucleotide poly-A tail on the RHS probe. No barcode is
+#' embedded; spatial barcoding is handled by the Visium slide capture probes.
+#'
+#' RHS structure:
+#'   /5Phos/ + [bases 26-50] + AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA  (30 × A)
+#'
+#' @param probe_str character — 50 bp probe sequence (markers will be stripped)
+#' @return character — full Visium RHS probe sequence ready for ordering
+add_rhs_handle_visium <- function(probe_str) {
+  raw      <- clean_probe_sequence(probe_str)
+  rhs_half <- substr(raw, 26, 50)
+  paste0("/5Phos/", rhs_half, "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
+}
+
+
 # =============================================================================
 # HANDLE APPENDING FUNCTIONS
 # =============================================================================
@@ -388,6 +406,78 @@ finalise_nonfusion_probes_v2 <- function(selected_df, rhs_mode = "multiplex") {
   data.frame(
     Gene      = selected_df$GENE,
     RHS_Mode  = rhs_mode,
+    LHS_Probe = lhs_probes,
+    RHS_Probe = rhs_probes,
+    stringsAsFactors = FALSE
+  )
+}
+
+
+# =============================================================================
+# VISIUM FINALISE FUNCTIONS
+# =============================================================================
+
+#' Generate synthesis-ready LHS and RHS probe sequences for Visium FFPE / CytAssist.
+#'
+#' Visium probes share the same LHS handle as Chromium Flex but use a 30-nucleotide
+#' poly-A tail on the RHS instead of the Flex barcode system. Spatial barcoding
+#' is performed by the Visium slide capture probes, not by the custom probe sequence.
+#'
+#' @param selected_df data frame with columns:
+#'   - GENE1 : character — first fusion partner gene name
+#'   - GENE2 : character — second fusion partner gene name
+#'   - probe : character — 50 bp probe sequence (| and * markers are stripped)
+#'
+#' @return data frame with columns:
+#'   - Fusion    : "GENE1::GENE2"
+#'   - LHS_Probe : full LHS oligonucleotide sequence for ordering
+#'   - RHS_Probe : full RHS oligonucleotide sequence for ordering
+finalise_probes_visium <- function(selected_df) {
+
+  required <- c("GENE1", "GENE2", "probe")
+  missing  <- setdiff(required, colnames(selected_df))
+  if (length(missing) > 0) {
+    stop("selected_df is missing required column(s): ", paste(missing, collapse = ", "))
+  }
+
+  lhs_probes <- sapply(selected_df$probe, add_lhs_handle,       USE.NAMES = FALSE)
+  rhs_probes <- sapply(selected_df$probe, add_rhs_handle_visium, USE.NAMES = FALSE)
+
+  data.frame(
+    Fusion    = paste(selected_df$GENE1, selected_df$GENE2, sep = "::"),
+    LHS_Probe = lhs_probes,
+    RHS_Probe = rhs_probes,
+    stringsAsFactors = FALSE
+  )
+}
+
+
+#' Generate synthesis-ready LHS and RHS sequences for non-fusion probes — Visium FFPE / CytAssist.
+#'
+#' Same poly-A RHS tail as the fusion Visium function; gene label comes from
+#' a single GENE column rather than GENE1/GENE2.
+#'
+#' @param selected_df data frame with columns:
+#'   - GENE  : character — target gene name
+#'   - probe : character — 50 bp probe sequence (| markers are stripped)
+#'
+#' @return data frame with columns:
+#'   - Gene      : target gene name
+#'   - LHS_Probe : full LHS oligonucleotide sequence for ordering
+#'   - RHS_Probe : full RHS oligonucleotide sequence for ordering
+finalise_nonfusion_probes_visium <- function(selected_df) {
+
+  required <- c("GENE", "probe")
+  missing  <- setdiff(required, colnames(selected_df))
+  if (length(missing) > 0) {
+    stop("selected_df is missing required column(s): ", paste(missing, collapse = ", "))
+  }
+
+  lhs_probes <- sapply(selected_df$probe, add_lhs_handle,       USE.NAMES = FALSE)
+  rhs_probes <- sapply(selected_df$probe, add_rhs_handle_visium, USE.NAMES = FALSE)
+
+  data.frame(
+    Gene      = selected_df$GENE,
     LHS_Probe = lhs_probes,
     RHS_Probe = rhs_probes,
     stringsAsFactors = FALSE

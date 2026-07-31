@@ -5,7 +5,7 @@ An R tool for automated probe design for the 10x Genomics Flex platform. Flexify
 - **Fusion probes** — 50 bp probes spanning a fusion gene junction, scored and ranked across all possible junction offsets.
 - **Non-fusion probes** — 50 bp antisense probes tiled along a wild-type transcript sequence (e.g. GFP, CRISPR reporter, or any exogenous/custom gene).
 
-Both workflows support **Chromium Flex (v1)** and **GEM-X Flex (v2)** assay formats, automated BLAST-based off-target screening, Flex probeset competition checking, and generate full synthesis-ready LHS and RHS probe sequences including the required 10x Genomics handle sequences.
+Both workflows support **Chromium Flex (v1)**, **GEM-X Flex (v2)**, and **Visium FFPE / CytAssist** assay formats, automated BLAST-based off-target screening, Flex probeset competition checking, and generate full synthesis-ready LHS and RHS probe sequences including the required 10x Genomics handle sequences.
 
 ---
 
@@ -124,6 +124,16 @@ Rscript flexify_cli.R \
   --output final_probes_v2.csv
 ```
 
+**Visium FFPE / CytAssist** (30-nucleotide poly-A tail on RHS):
+
+```bash
+Rscript flexify_cli.R \
+  --mode finalise \
+  --assay-version visium \
+  --input selected_probes.csv \
+  --output final_probes_visium.csv
+```
+
 The output CSV contains synthesis-ready `LHS` and `RHS` columns for each selected probe.
 
 ### 3 — Design non-fusion probes from a wild-type transcript CSV
@@ -157,6 +167,11 @@ Rscript flexify_cli.R --mode finalise --nonfusion \
 Rscript flexify_cli.R --mode finalise --nonfusion --assay-version v2 \
   --input selected_nonfusion.csv \
   --output final_nonfusion_v2.csv
+
+# Finalise (Visium, poly-A tail):
+Rscript flexify_cli.R --mode finalise --nonfusion --assay-version visium \
+  --input selected_nonfusion.csv \
+  --output final_nonfusion_visium.csv
 ```
 
 ---
@@ -296,7 +311,7 @@ Results from both checks are carried forward to Tab 3.
 
 ### Tab 3 — Select & Finalise
 
-**Select your assay version** (v1 or v2) in the sidebar before generating final probes.
+**Select your assay version** (v1, v2, or visium) in the sidebar before generating final probes.
 
 **Fusion probes**: each fusion (GENE1::GENE2) is shown as a panel with radio buttons listing all ranked candidate probes and a barcode dropdown (v1 only). Select one probe per fusion, assign barcodes (v1), then click **Generate Final Probes**.
 
@@ -401,19 +416,28 @@ Rscript flexify_cli.R \
   --assay-version v2 --rhs-mode singleplex \
   --input selected_probes.csv \
   --output final_probes.csv
+
+# Visium FFPE / CytAssist — poly-A tail on RHS:
+Rscript flexify_cli.R \
+  --mode finalise \
+  --assay-version visium \
+  --input selected_probes.csv \
+  --output final_probes.csv
 ```
 
 **v1:** Input CSV must contain `GENE1`, `GENE2`, `probe`, and `Barcode` (integer 1–16 or string BC001–BC016).
 
 **v2:** Input CSV requires only `GENE1`, `GENE2`, and `probe` — no `Barcode` column.
 
-If a `Selected` column is present in either case, only rows marked `TRUE` are processed.
+**visium:** Input CSV requires only `GENE1`, `GENE2`, and `probe` — no `Barcode` column.
+
+If a `Selected` column is present in any case, only rows marked `TRUE` are processed.
 
 **Additional flags:**
 
 | Flag | Default | Description |
 |---|---|---|
-| `--assay-version` | v1 | Assay version: `v1` (Chromium Flex) or `v2` (GEM-X Flex) |
+| `--assay-version` | v1 | Assay version: `v1` (Chromium Flex), `v2` (GEM-X Flex), or `visium` (Visium FFPE / CytAssist) |
 | `--rhs-mode` | multiplex | v2 RHS tail: `multiplex` (CCCATATAAGAAA) or `singleplex` (CGGTCCTAGCAA) |
 
 ---
@@ -475,6 +499,14 @@ Total length: 38 characters (excluding `/5Phos/`). No barcode in probe.
 + CGGTCCTAGCAA         [12 bp constant tail]
 ```
 Total length: 37 characters (excluding `/5Phos/`). No barcode in probe.
+
+### RHS probe — Visium FFPE / CytAssist
+```
+/5Phos/                [5-prime phosphorylation]
++ [bases 26–50 of the 50 bp probe]
++ AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA  [30 bp poly-A tail]
+```
+Total length: 55 characters (excluding `/5Phos/`). Spatial barcoding is performed by the Visium slide capture probes, not by the custom probe sequence. The LHS handle is identical to Chromium Flex.
 
 ### Probe Barcodes (v1 only)
 

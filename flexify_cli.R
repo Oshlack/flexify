@@ -146,7 +146,7 @@ option_list <- list(
   make_option("--assay-version",
               type    = "character",
               default = "v1",
-              help    = "Assay version for finalise mode: 'v1' (Chromium Flex, barcode embedded) or 'v2' (GEM-X Flex, no barcode) [default: v1]",
+              help    = "Assay version for finalise mode: 'v1' (Chromium Flex, barcode embedded), 'v2' (GEM-X Flex, no barcode), or 'visium' (Visium FFPE / CytAssist, poly-A tail) [default: v1]",
               metavar = "VERSION"),
 
   make_option("--rhs-mode",
@@ -320,10 +320,11 @@ if (opt$mode == "blast") {
 if (opt$mode == "finalise") {
 
   assay_ver <- opt[["assay-version"]]
-  if (!assay_ver %in% c("v1", "v2")) {
-    stop("--assay-version must be 'v1' or 'v2'. Got: ", assay_ver)
+  if (!assay_ver %in% c("v1", "v2", "visium")) {
+    stop("--assay-version must be 'v1', 'v2', or 'visium'. Got: ", assay_ver)
   }
-  is_v2 <- assay_ver == "v2"
+  is_v2     <- assay_ver == "v2"
+  is_visium <- assay_ver == "visium"
 
   rhs_mode <- opt[["rhs-mode"]]
   if (is_v2 && !rhs_mode %in% c("multiplex", "singleplex")) {
@@ -351,15 +352,16 @@ if (opt$mode == "finalise") {
 
   if (isTRUE(opt$nonfusion)) {
     # Non-fusion: single GENE column, no GENE1/GENE2
-    required <- if (is_v2) c("GENE", "probe") else c("GENE", "probe", "Barcode")
+    required <- if (is_v2 || is_visium) c("GENE", "probe") else c("GENE", "probe", "Barcode")
     missing  <- setdiff(required, colnames(input_df))
     if (length(missing) > 0) {
       stop("Input CSV is missing required columns: ", paste(missing, collapse = ", "))
     }
 
     final_df <- tryCatch(
-      if (is_v2) finalise_nonfusion_probes_v2(input_df, rhs_mode = rhs_mode)
-      else        finalise_nonfusion_probes(input_df),
+      if (is_visium) finalise_nonfusion_probes_visium(input_df)
+      else if (is_v2) finalise_nonfusion_probes_v2(input_df, rhs_mode = rhs_mode)
+      else            finalise_nonfusion_probes(input_df),
       error = function(e) stop("Finalise failed: ", conditionMessage(e))
     )
 
@@ -368,15 +370,16 @@ if (opt$mode == "finalise") {
 
   } else {
     # Fusion: GENE1 + GENE2 columns
-    required <- if (is_v2) c("GENE1", "GENE2", "probe") else c("GENE1", "GENE2", "probe", "Barcode")
+    required <- if (is_v2 || is_visium) c("GENE1", "GENE2", "probe") else c("GENE1", "GENE2", "probe", "Barcode")
     missing  <- setdiff(required, colnames(input_df))
     if (length(missing) > 0) {
       stop("Input CSV is missing required columns: ", paste(missing, collapse = ", "))
     }
 
     final_df <- tryCatch(
-      if (is_v2) finalise_probes_v2(input_df, rhs_mode = rhs_mode)
-      else        finalise_probes(input_df),
+      if (is_visium) finalise_probes_visium(input_df)
+      else if (is_v2) finalise_probes_v2(input_df, rhs_mode = rhs_mode)
+      else            finalise_probes(input_df),
       error = function(e) stop("Finalise failed: ", conditionMessage(e))
     )
 
